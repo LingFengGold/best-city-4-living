@@ -1,4 +1,4 @@
-<title>宜居半月计算器</title>
+<title>宜居城市计算器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -123,8 +123,8 @@ code { font-family: var(--mono); font-size: 12.5px; }
 
 <div class="wrap">
   <header>
-    <h1>宜居半月计算器</h1>
-    <p class="lede">用 2020–2024 年 141 个城市的真实观测，统计每半个月里有多少比例的时刻"舒服"、有多少晴天。<b>算法和数据是固定的，"舒服"由你在左侧定义</b>：温度、露点、湿度、风速、时段、晴天和雾霾规则都能调。默认值复刻了小红书原帖的个人偏好。</p>
+    <h1>宜居城市计算器</h1>
+    <p class="lede">用 2020–2024 年 141 个城市的真实观测，统计每半个月里有多少比例的时刻"舒服"、有多少晴天。<b>算法和数据是固定的，"舒服"由你在左侧定义</b>：温度、露点、湿度、风速、时段、晴天和雾霾规则都能调。</p>
   </header>
 
   <div class="layout">
@@ -158,7 +158,7 @@ code { font-family: var(--mono); font-size: 12.5px; }
       <div class="group">
         <h2>相对湿度</h2>
         <div class="row"><label for="rhMax">低于</label><output id="rhMaxO"></output><input type="range" id="rhMax" min="40" max="100" step="1">
-          <span class="hint">原帖用 ≥90% 粗略排除下雨时刻；设成 100% 等于不限制。</span></div>
+          <span class="hint">湿度 ≥90% 可以粗略排除下雨时刻；设成 100% 等于不限制。</span></div>
       </div>
 
       <div class="group">
@@ -171,7 +171,7 @@ code { font-family: var(--mono); font-size: 12.5px; }
       <div class="group">
         <h2>雾霾否决</h2>
         <div class="row"><label for="vScope">否决范围</label><span></span>
-          <select id="vScope" style="grid-column:1/-1"><option value="month">整月否决（原帖）</option><option value="half">只否决该半月</option><option value="none">不考虑空气质量</option></select></div>
+          <select id="vScope" style="grid-column:1/-1"><option value="month">整月否决</option><option value="half">只否决该半月</option><option value="none">不考虑空气质量</option></select></div>
         <div class="sub" id="vBox">
           <div class="row"><label for="pmMax">雾霾日：PM2.5 AQI 日中位数高于</label><output id="pmMaxO"></output><input type="range" id="pmMax" min="50" max="250" step="5">
             <span class="hint">美标 AQI。100 = 对敏感人群不健康，150 = 不健康（约 55 µg/m³）。</span></div>
@@ -240,7 +240,7 @@ code { font-family: var(--mono); font-size: 12.5px; }
 const MONTHS = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 const SUN0 = { cMax: 30, sunMode: "none", sunPct: 40 };
 const PRESETS = {
-  "原帖（偏热）": { hStart: 8, hEnd: 23, tMin: 17, tMax: 32, tdMax: 20, tdSplit: true, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
+  "偏热": { hStart: 8, hEnd: 23, tMin: 17, tMax: 32, tdMax: 20, tdSplit: true, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
   "温和": { hStart: 8, hEnd: 23, tMin: 18, tMax: 28, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
   "晴朗温暖": { hStart: 8, hEnd: 23, tMin: 18, tMax: 30, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, cMax: 40, sunMode: "days", sunPct: 50 },
   "偏凉干爽": { hStart: 8, hEnd: 23, tMin: 10, tMax: 26, tdMax: 15, tdSplit: false, tdIntl: 15, rhMax: 85, wOn: true, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
@@ -286,7 +286,7 @@ const cities = meta.cities.map((c, idx) => {
 });
 
 // ---------- 状态 ----------
-let state = { ...PRESETS["原帖（偏热）"], sortBy: "count", view: "comfort" };
+let state = { ...PRESETS["偏热"], sortBy: "count", view: "comfort" };
 let regions = new Set();  // 空集合 = 全部
 try { const s = JSON.parse(localStorage.getItem("ylbm-state")); if (s) state = { ...state, ...s }; } catch (e) {}
 try { const r = JSON.parse(localStorage.getItem("ylbm-regions")); if (Array.isArray(r)) regions = new Set(r); } catch (e) {}

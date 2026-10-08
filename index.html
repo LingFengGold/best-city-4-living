@@ -240,6 +240,7 @@ code { font-family: var(--mono); font-size: 12.5px; }
 const MONTHS = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
 const SUN0 = { cMax: 30, sunMode: "none", sunPct: 40 };
 const PRESETS = {
+  "舒爽晴朗": { hStart: 8, hEnd: 23, tMin: 10, tMax: 28, tdMax: 16, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, cMax: 50, sunMode: "days", sunPct: 50 },
   "偏热": { hStart: 8, hEnd: 23, tMin: 17, tMax: 32, tdMax: 20, tdSplit: true, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
   "温和": { hStart: 8, hEnd: 23, tMin: 18, tMax: 28, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
   "晴朗温暖": { hStart: 8, hEnd: 23, tMin: 18, tMax: 30, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, cMax: 40, sunMode: "days", sunPct: 50 },
@@ -286,7 +287,7 @@ const cities = meta.cities.map((c, idx) => {
 });
 
 // ---------- 状态 ----------
-let state = { ...PRESETS["偏热"], sortBy: "count", view: "comfort" };
+let state = { ...PRESETS["舒爽晴朗"], sortBy: "count", view: "comfort" };
 let regions = new Set();  // 空集合 = 全部
 try { const s = JSON.parse(localStorage.getItem("ylbm-state")); if (s) state = { ...state, ...s }; } catch (e) {}
 try { const r = JSON.parse(localStorage.getItem("ylbm-regions")); if (Array.isArray(r)) regions = new Set(r); } catch (e) {}

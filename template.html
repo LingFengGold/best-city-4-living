@@ -1,0 +1,503 @@
+<title>宜居半月计算器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 布局：左侧是"舒适时刻"定义面板（窄屏时移到上方），右侧是城市 × 半月热力表，按得分排序 */
+:root {
+  --bg: #f5f7f8;
+  --panel: #ffffff;
+  --fg: #172026;
+  --muted: #5b6871;
+  --faint: #8b979f;
+  --line: #dde3e7;
+  --veto-bg: #eceeef;
+  --veto-fg: #9aa3a9;
+  --mark: #d9480f;
+  --accent: #1c5cab;
+  --nodata: #f0f2f3;
+  --s0: #f2f6fb; --s1: #cde2fb; --s2: #9ec5f4; --s3: #6da7ec; --s4: #3987e5; --s5: #256abf; --s6: #184f95; --s7: #0d366b;
+  --ink-on-dark: #ffffff;
+  --display: "Noto Serif SC", "Songti SC", serif;
+  --body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111619; --panel: #182025; --fg: #e4e9ec; --muted: #9eabb3; --faint: #6f7c84; --line: #2a343a;
+  --veto-bg: #1e2529; --veto-fg: #5e6a71; --mark: #ff8a5c; --accent: #6da7ec; --nodata: #1a2125;
+  --s0: #172028; --s1: #13304f; --s2: #184f95; --s3: #1c5cab; --s4: #2a78d6; --s5: #5598e7; --s6: #86b6ef; --s7: #b7d3f6;
+  --ink-on-dark: #0b1520; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #111619; --panel: #182025; --fg: #e4e9ec; --muted: #9eabb3; --faint: #6f7c84; --line: #2a343a;
+  --veto-bg: #1e2529; --veto-fg: #5e6a71; --mark: #ff8a5c; --accent: #6da7ec; --nodata: #1a2125;
+  --s0: #172028; --s1: #13304f; --s2: #184f95; --s3: #1c5cab; --s4: #2a78d6; --s5: #5598e7; --s6: #86b6ef; --s7: #b7d3f6;
+  --ink-on-dark: #0b1520; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.55; margin: 0; }
+.wrap { padding-inline: 20px; padding-block: 24px 48px; max-width: 1500px; margin: 0 auto; }
+header { display: grid; gap: 6px; margin-bottom: 20px; }
+h1 { font-family: var(--display); font-weight: 900; font-size: clamp(26px, 4vw, 38px); margin: 0; letter-spacing: .02em; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 68ch; margin: 0; }
+.lede b { color: var(--fg); font-weight: 500; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* 控制面板 */
+aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 18px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow-y: auto; }
+@media (max-width: 900px) { aside { position: static; max-height: none; } }
+.group { display: grid; gap: 8px; }
+.group > h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; color: var(--muted); margin: 0; text-transform: uppercase; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; }
+.row label { font-size: 13px; }
+.row output { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 500; }
+.row input[type=range] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); margin: 0; }
+.row .hint { grid-column: 1 / -1; font-size: 12px; color: var(--faint); }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--accent); }
+select { font: inherit; font-size: 13px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+button.chip, .chip { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.chip:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sub { padding-left: 12px; border-left: 2px solid var(--line); display: grid; gap: 8px; }
+
+/* 结果区 */
+main { min-width: 0; display: grid; gap: 14px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.regions { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 420px; }
+.view { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.view select { width: auto; }
+.c-sun { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; padding: 0 10px 0 0; white-space: nowrap; }
+.summary { font-size: 13px; color: var(--muted); }
+.summary b { color: var(--fg); font-family: var(--mono); font-weight: 500; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; font-size: 12px; color: var(--muted); }
+.ramp { display: inline-flex; align-items: center; gap: 6px; }
+.ramp i { display: inline-block; width: 14px; height: 12px; }
+.ramp i:first-of-type { border-radius: 3px 0 0 3px; } .ramp i:last-of-type { border-radius: 0 3px 3px 0; }
+.swatch { display: inline-block; width: 18px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
+.sw-mark { background: var(--s3); box-shadow: inset 0 0 0 2px var(--mark); }
+.sw-veto { background: repeating-linear-gradient(135deg, var(--veto-bg) 0 3px, var(--line) 3px 5px); }
+
+.tablebox { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; width: 100%; }
+th, td { padding: 0; }
+thead th { font-size: 11px; font-weight: 500; color: var(--muted); padding: 8px 0 6px; text-align: center; position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); }
+thead th.mon { text-align: left; padding-left: 2px; }
+th.left, td.left { text-align: left; }
+.c-rank { width: 36px; font-family: var(--mono); color: var(--faint); font-size: 12px; text-align: right; padding-right: 8px; }
+.c-city { position: sticky; left: 0; background: var(--panel); z-index: 1; padding: 0 10px 0 4px; white-space: nowrap; min-width: 112px; cursor: help; }
+thead .c-city { z-index: 2; }
+.c-city .nm { font-weight: 500; }
+.c-city .rg { font-size: 11px; color: var(--faint); margin-left: 4px; }
+.c-city .noaq { font-size: 10.5px; color: var(--mark); margin-left: 4px; }
+.c-score { font-family: var(--mono); font-size: 13px; text-align: right; padding: 0 10px; white-space: nowrap; }
+.c-score b { font-weight: 500; font-size: 15px; }
+.c-score span { color: var(--faint); font-size: 11.5px; }
+tbody tr:hover .c-city, tbody tr:hover .c-rank, tbody tr:hover .c-score, tbody tr:hover .c-sun { background: var(--bg); }
+td.cell { width: 30px; min-width: 30px; height: 28px; text-align: center; font-family: var(--mono); font-size: 10.5px; border-right: 2px solid var(--panel); border-bottom: 2px solid var(--panel); border-radius: 4px; cursor: default; }
+td.cell.ok { box-shadow: inset 0 0 0 2px var(--mark); font-weight: 500; }
+td.cell.veto { background: repeating-linear-gradient(135deg, var(--veto-bg) 0 3px, var(--line) 3px 5px); color: var(--veto-fg); }
+td.cell.nd { background: var(--nodata); color: var(--faint); }
+td.cell:hover { outline: 2px solid var(--fg); outline-offset: -2px; }
+td.mstart { border-left: 1px solid var(--line); }
+
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.14); padding: 10px 12px; font-size: 12.5px; max-width: 290px; display: grid; gap: 4px; }
+#tip h3 { margin: 0; font-size: 13.5px; font-weight: 700; }
+#tip .kv { display: grid; grid-template-columns: auto auto; justify-content: space-between; gap: 2px 14px; font-family: var(--mono); font-size: 12px; }
+#tip .kv span:nth-child(odd) { font-family: var(--body); color: var(--muted); }
+#tip .note { color: var(--muted); font-size: 12px; }
+#tip .bad { color: var(--mark); }
+
+.method { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 10px; max-width: 900px; }
+.method h2 { font-family: var(--display); font-size: 19px; margin: 0; }
+.method p, .method li { margin: 0; color: var(--muted); max-width: 72ch; }
+.method ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.method b { color: var(--fg); font-weight: 500; }
+.method a { color: var(--accent); }
+code { font-family: var(--mono); font-size: 12.5px; }
+#loading { padding: 40px; color: var(--muted); text-align: center; }
+@media (prefers-reduced-motion: no-preference) { td.cell { transition: background-color .15s; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>宜居半月计算器</h1>
+    <p class="lede">用 2020–2024 年 141 个城市的真实观测，统计每半个月里有多少比例的时刻"舒服"、有多少晴天。<b>算法和数据是固定的，"舒服"由你在左侧定义</b>：温度、露点、湿度、风速、时段、晴天和雾霾规则都能调。默认值复刻了小红书原帖的个人偏好。</p>
+  </header>
+
+  <div class="layout">
+    <aside aria-label="舒适时刻定义">
+      <div class="group">
+        <h2>预设</h2>
+        <div class="presets" id="presets"></div>
+      </div>
+
+      <div class="group">
+        <h2>时段（当地时间）</h2>
+        <div class="row"><label for="hStart">从</label><output id="hStartO"></output><input type="range" id="hStart" min="0" max="23" step="1"></div>
+        <div class="row"><label for="hEnd">到</label><output id="hEndO"></output><input type="range" id="hEnd" min="0" max="23" step="1">
+          <span class="hint">每个站统一取每 3 小时一次的观测，中国大陆是 2、5、8、11、14、17、20、23 点。</span></div>
+      </div>
+
+      <div class="group">
+        <h2>温度</h2>
+        <div class="row"><label for="tMin">高于</label><output id="tMinO"></output><input type="range" id="tMin" min="-10" max="35" step="1"></div>
+        <div class="row"><label for="tMax">低于</label><output id="tMaxO"></output><input type="range" id="tMax" min="0" max="45" step="1"></div>
+      </div>
+
+      <div class="group">
+        <h2>露点（闷热、潮湿感）</h2>
+        <div class="row"><label for="tdMax">低于</label><output id="tdMaxO"></output><input type="range" id="tdMax" min="0" max="28" step="1">
+          <span class="hint">露点 16°C 以下干爽，18–20 开始发黏，24 以上桑拿。</span></div>
+        <label class="check"><input type="checkbox" id="tdSplit"> 中国大陆以外单独设置</label>
+        <div class="sub" id="tdIntlBox"><div class="row"><label for="tdIntl">其他地区低于</label><output id="tdIntlO"></output><input type="range" id="tdIntl" min="0" max="28" step="1"></div></div>
+      </div>
+
+      <div class="group">
+        <h2>相对湿度</h2>
+        <div class="row"><label for="rhMax">低于</label><output id="rhMaxO"></output><input type="range" id="rhMax" min="40" max="100" step="1">
+          <span class="hint">原帖用 ≥90% 粗略排除下雨时刻；设成 100% 等于不限制。</span></div>
+      </div>
+
+      <div class="group">
+        <h2>风</h2>
+        <label class="check"><input type="checkbox" id="wOn"> 排除大风时刻</label>
+        <div class="sub" id="wBox"><div class="row"><label for="wMax">风速不超过</label><output id="wMaxO"></output><input type="range" id="wMax" min="3" max="15" step="0.5">
+          <span class="hint">5.5 m/s 约 4 级风（吹起纸张），8 m/s 约 5 级。</span></div></div>
+      </div>
+
+      <div class="group">
+        <h2>雾霾否决</h2>
+        <div class="row"><label for="vScope">否决范围</label><span></span>
+          <select id="vScope" style="grid-column:1/-1"><option value="month">整月否决（原帖）</option><option value="half">只否决该半月</option><option value="none">不考虑空气质量</option></select></div>
+        <div class="sub" id="vBox">
+          <div class="row"><label for="pmMax">雾霾日：PM2.5 AQI 日中位数高于</label><output id="pmMaxO"></output><input type="range" id="pmMax" min="50" max="250" step="5">
+            <span class="hint">美标 AQI。100 = 对敏感人群不健康，150 = 不健康（约 55 µg/m³）。</span></div>
+          <div class="row"><label for="vDays">每年平均雾霾日达到</label><output id="vDaysO"></output><input type="range" id="vDays" min="0.2" max="10" step="0.2">
+            <span class="hint">达到这个天数，该月或该半月整格作废。</span></div>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>晴天</h2>
+        <div class="row"><label for="cMax">晴天：白天平均云量不超过</label><output id="cMaxO"></output><input type="range" id="cMax" min="10" max="80" step="5">
+          <span class="hint">当地 8–17 时 ERA5 总云量的均值。气象上晴约 ≤30%，少云约 ≤50%。</span></div>
+        <div class="row"><label for="sunMode">怎么计入</label><span></span>
+          <select id="sunMode" style="grid-column:1/-1"><option value="none">只统计，不影响结果</option><option value="moments">非晴天的时刻不算舒适</option><option value="days">舒适半月还要求足够多晴天</option></select></div>
+        <div class="sub" id="sunBox"><div class="row"><label for="sunPct">半月里晴天占比至少</label><output id="sunPctO"></output><input type="range" id="sunPct" min="10" max="100" step="5"></div></div>
+      </div>
+
+      <div class="group">
+        <h2>舒适半月 &amp; 排名</h2>
+        <div class="row"><label for="okPct">舒适时刻占比至少</label><output id="okPctO"></output><input type="range" id="okPct" min="10" max="95" step="5"></div>
+        <div class="row"><label for="sortBy">排名依据</label><span></span>
+          <select id="sortBy" style="grid-column:1/-1"><option value="count">舒适半月个数</option><option value="mean">全年平均舒适占比</option><option value="sunny">每年晴天天数</option></select></div>
+      </div>
+    </aside>
+
+    <main>
+      <div class="toolbar">
+        <div class="regions" id="regions" role="group" aria-label="地区筛选（可多选）"></div>
+        <label class="view" for="view">格子显示 <select id="view"><option value="comfort">舒适时刻占比</option><option value="sunny">晴天占比</option></select></label>
+        <div class="summary" id="summary"></div>
+      </div>
+      <div class="legend">
+        <span class="ramp">0%<i style="background:var(--s0)"></i><i style="background:var(--s1)"></i><i style="background:var(--s2)"></i><i style="background:var(--s3)"></i><i style="background:var(--s4)"></i><i style="background:var(--s5)"></i><i style="background:var(--s6)"></i><i style="background:var(--s7)"></i>100% <span id="rampLabel">舒适时刻占比</span></span>
+        <span><span class="swatch sw-mark"></span>舒适半月</span>
+        <span><span class="swatch sw-veto"></span>雾霾否决</span>
+        <span>悬停格子看明细，悬停城市名看气象站</span>
+      </div>
+      <div class="tablebox"><div id="loading">正在解压约 200 万条观测…</div><table id="tbl" hidden></table></div>
+
+      <section class="method">
+        <h2>算法</h2>
+        <ul>
+          <li><b>一个"时刻"</b>是一次地面气象观测。每个站取 UTC 0、3、6…21 点（每天 8 次），换算成当地时间（含夏令时），只保留落在你所选时段内的。</li>
+          <li><b>舒适时刻</b>要同时满足：温度在区间内、露点低于上限、相对湿度低于上限，开启后还要风速不超限。相对湿度由温度和露点按 Magnus 公式计算。</li>
+          <li><b>格子里的数字</b> = 该半月（1–15 日、16 日–月底）5 年所有舒适时刻 ÷ 有效时刻。</li>
+          <li><b>雾霾否决</b>：PM2.5 AQI 日中位数超过阈值记为雾霾日，按年平均到每个月或半月。达到天数就整格作废，计 0 分。没有空气质量数据的城市（名字后标"无空气数据"）不做否决。</li>
+          <li><b>晴天</b>：当地 8–17 时 ERA5 平均总云量不超过阈值的日子。可以只做参考，也可以要求舒适时刻必须在晴天，或要求舒适半月里晴天够多。</li>
+          <li><b>排名</b>：默认按舒适占比达到门槛的半月个数，相同时比全年平均占比。被否决的格子计 0。</li>
+        </ul>
+        <h2>数据</h2>
+        <ul>
+          <li><b>气象</b>：NOAA <a href="https://www.ncei.noaa.gov/pub/data/noaa/isd-lite/" target="_blank" rel="noopener">ISD-Lite</a> 逐时地面观测，2020–2024。每个城市取 60 km 内、5 年覆盖率最高的最近站点，多数是机场站。rp5.ru 背后是同一套 SYNOP 报文。</li>
+          <li><b>云量</b>：<a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" rel="noopener">Open-Meteo 历史天气接口</a>（ERA5 再分析，约 25 km 网格）逐时总云量，2020–2024。地面站的云量观测在中国站点大多缺测，所以改用再分析。没有用接口里的"日照时长"，它系统性偏高，比如伦敦算出来一年 2800 小时，实测约 1600 小时。</li>
+          <li><b>空气</b>：<a href="https://aqicn.org/data-platform/covid19/" target="_blank" rel="noopener">aqicn 开放数据平台</a>的逐日 PM2.5（美标 AQI，全城站点中位数），2020–2024。</li>
+          <li><b>已知局限</b>：机场站一般在郊区，比市中心凉一点、风大一点。深圳用的是香港打鼓岭站，攀枝花和苏州附近没有合格站点所以未收录，墨西哥城和瓜达拉哈拉的覆盖率只有 56–67%。</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="tip" hidden></div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(async () => {
+const MONTHS = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+const SUN0 = { cMax: 30, sunMode: "none", sunPct: 40 };
+const PRESETS = {
+  "原帖（偏热）": { hStart: 8, hEnd: 23, tMin: 17, tMax: 32, tdMax: 20, tdSplit: true, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
+  "温和": { hStart: 8, hEnd: 23, tMin: 18, tMax: 28, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
+  "晴朗温暖": { hStart: 8, hEnd: 23, tMin: 18, tMax: 30, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, cMax: 40, sunMode: "days", sunPct: 50 },
+  "偏凉干爽": { hStart: 8, hEnd: 23, tMin: 10, tMax: 26, tdMax: 15, tdSplit: false, tdIntl: 15, rhMax: 85, wOn: true, wMax: 8, vScope: "month", pmMax: 150, vDays: 1, okPct: 50, ...SUN0 },
+  "只看白天": { hStart: 9, hEnd: 18, tMin: 17, tMax: 30, tdMax: 18, tdSplit: false, tdIntl: 18, rhMax: 90, wOn: false, wMax: 8, vScope: "half", pmMax: 100, vDays: 2, okPct: 50, ...SUN0 },
+};
+const NUM = ["hStart","hEnd","tMin","tMax","tdMax","tdIntl","rhMax","wMax","pmMax","vDays","okPct","cMax","sunPct"];
+const BOOL = ["tdSplit","wOn"]; const SEL = ["vScope","sortBy","sunMode","view"];
+const $ = id => document.getElementById(id);
+
+// ---------- 解码数据 ----------
+const meta = JSON.parse($("data").textContent);
+const bin = Uint8Array.from(atob(meta.blob), c => c.charCodeAt(0));
+const buf = new Uint8Array(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
+const start = new Date(meta.start + "T00:00:00Z");
+const dayHm = new Uint8Array(meta.ndays), dayYr = new Uint8Array(meta.ndays);
+for (let d = 0; d < meta.ndays; d++) {
+  const dt = new Date(start.getTime() + d * 864e5);
+  dayHm[d] = dt.getUTCMonth() * 2 + (dt.getUTCDate() > 15 ? 1 : 0);
+  dayYr[d] = dt.getUTCFullYear() - 2020;
+}
+let off = 0;
+const cities = meta.cities.map((c, idx) => {
+  const n = c.n;
+  const hm = buf.subarray(off, off + n), hr = buf.subarray(off + n, off + 2*n);
+  const t = new Int8Array(buf.buffer, buf.byteOffset + off + 2*n, n), td = new Int8Array(buf.buffer, buf.byteOffset + off + 3*n, n);
+  const ws = buf.subarray(off + 4*n, off + 5*n), cl = buf.subarray(off + 5*n, off + 6*n);
+  off += 6*n;
+  const cloudDay = buf.subarray(off, off + meta.ndays);
+  off += meta.ndays;
+  const rh = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    const T = t[i] / 2, D = td[i] / 2;
+    rh[i] = Math.min(100, Math.round(100 * Math.exp(17.625 * D / (243.04 + D) - 17.625 * T / (243.04 + T))));
+  }
+  let pm = null;
+  if (c.hasAq) {
+    const dv = new DataView(buf.buffer, buf.byteOffset + off, meta.ndays * 2);
+    pm = new Uint16Array(meta.ndays);
+    for (let d = 0; d < meta.ndays; d++) pm[d] = dv.getUint16(d * 2, true);
+    off += meta.ndays * 2;
+  }
+  return { ...c, idx, hm, hr, t, td, ws, cl, cloudDay, rh, pm };
+});
+
+// ---------- 状态 ----------
+let state = { ...PRESETS["原帖（偏热）"], sortBy: "count", view: "comfort" };
+let regions = new Set();  // 空集合 = 全部
+try { const s = JSON.parse(localStorage.getItem("ylbm-state")); if (s) state = { ...state, ...s }; } catch (e) {}
+try { const r = JSON.parse(localStorage.getItem("ylbm-regions")); if (Array.isArray(r)) regions = new Set(r); } catch (e) {}
+
+function hourIn(h, a, b) { return a <= b ? h >= a && h <= b : h >= a || h <= b; }
+
+function hazeAvg(c, pmMax) {
+  // 每个半月：雾霾天数 / 有数据的年数（该半月当年有效天数 ≥ 8 才算一年）
+  const haze = new Float32Array(24), valid = Array.from({ length: 24 }, () => new Uint8Array(5)), hz = Array.from({ length: 24 }, () => new Uint8Array(5));
+  for (let d = 0; d < meta.ndays; d++) {
+    const v = c.pm[d]; if (v === 0xFFFF) continue;
+    valid[dayHm[d]][dayYr[d]]++;
+    if (v > pmMax) hz[dayHm[d]][dayYr[d]]++;
+  }
+  for (let k = 0; k < 24; k++) {
+    let yrs = 0, days = 0;
+    for (let y = 0; y < 5; y++) if (valid[k][y] >= 8) { yrs++; days += hz[k][y] * 15.2 / valid[k][y]; }
+    haze[k] = yrs ? days / yrs : NaN;
+  }
+  return haze;
+}
+
+function compute() {
+  const s = state;
+  return cities.map(c => {
+    const tdLim = (s.tdSplit && c.region !== "中国大陆" ? s.tdIntl : s.tdMax) * 2;
+    const tLo = s.tMin * 2, tHi = s.tMax * 2, wLim = s.wMax * 2;
+    const tot = new Uint16Array(24), ok = new Uint16Array(24), cold = new Uint16Array(24), hot = new Uint16Array(24), wet = new Uint16Array(24), rhf = new Uint16Array(24), wf = new Uint16Array(24), cf = new Uint16Array(24);
+    const sunMoments = s.sunMode === "moments";
+    for (let i = 0; i < c.t.length; i++) {
+      if (!hourIn(c.hr[i], s.hStart, s.hEnd)) continue;
+      const k = c.hm[i]; tot[k]++;
+      const T = c.t[i]; let good = true;
+      if (T <= tLo) { cold[k]++; good = false; }
+      if (T >= tHi) { hot[k]++; good = false; }
+      if (c.td[i] >= tdLim) { wet[k]++; good = false; }
+      if (c.rh[i] >= s.rhMax) { rhf[k]++; good = false; }
+      if (s.wOn && c.ws[i] !== 255 && c.ws[i] > wLim) { wf[k]++; good = false; }
+      if (sunMoments && (c.cl[i] === 255 || c.cl[i] > s.cMax)) { cf[k]++; good = false; }
+      if (good) ok[k]++;
+    }
+    // 晴天：每个半月 5 年里晴天占有云量数据天数的比例
+    const sunDays = new Uint16Array(24), cloudDays = new Uint16Array(24);
+    let sunAll = 0, cloudAll = 0;
+    for (let d = 0; d < meta.ndays; d++) {
+      const v = c.cloudDay[d]; if (v === 255) continue;
+      cloudDays[dayHm[d]]++; cloudAll++;
+      if (v <= s.cMax) { sunDays[dayHm[d]]++; sunAll++; }
+    }
+    const haze = c.pm && s.vScope !== "none" ? hazeAvg(c, s.pmMax) : null;
+    const cells = [];
+    let count = 0, sum = 0;
+    for (let k = 0; k < 24; k++) {
+      const frac = tot[k] ? ok[k] / tot[k] : NaN;
+      let hz = haze ? haze[k] : NaN;
+      if (haze && s.vScope === "month") { const a = haze[k & ~1], b = haze[k | 1]; hz = (isNaN(a) ? 0 : a) + (isNaN(b) ? 0 : b); }
+      const veto = haze != null && !isNaN(hz) && hz >= s.vDays;
+      const sun = cloudDays[k] ? sunDays[k] / cloudDays[k] : NaN;
+      const sunShort = s.sunMode === "days" && !(sun * 100 >= s.sunPct);
+      const good = !veto && !sunShort && frac * 100 >= s.okPct;
+      if (good) count++;
+      sum += veto || isNaN(frac) ? 0 : frac;
+      cells.push({ k, frac, tot: tot[k], ok: ok[k], cold: cold[k], hot: hot[k], wet: wet[k], rhf: rhf[k], wf: wf[k], cf: cf[k], hz, veto, good, sun, sunShort });
+    }
+    return { c, cells, count, mean: sum / 24, sunny: cloudAll ? sunAll / cloudAll * 365.25 : NaN };
+  });
+}
+
+// ---------- 渲染 ----------
+const RAMP = [0,1,2,3,4,5,6,7].map(i => `var(--s${i})`);
+const tbl = $("tbl");
+function header() {
+  let h = `<thead><tr><th class="c-rank">#</th><th class="c-city left">城市</th><th class="c-score" title="舒适半月个数 · 全年平均舒适占比">得分</th><th class="c-sun" title="按当前晴天定义，平均每年的晴天天数">晴天/年</th>`;
+  for (let m = 0; m < 12; m++) h += `<th class="mon" colspan="2">${MONTHS[m]}</th>`;
+  return h + `</tr></thead>`;
+}
+let rows = [];
+function render() {
+  rows = compute();
+  const key = state.sortBy;
+  rows.sort((a, b) => key === "count" ? (b.count - a.count) || (b.mean - a.mean)
+    : key === "sunny" ? (b.sunny - a.sunny) || (b.count - a.count)
+    : (b.mean - a.mean) || (b.count - a.count));
+  const shown = rows.filter(r => !regions.size || regions.has(r.c.region));
+  const sunView = state.view === "sunny";
+  $("rampLabel").textContent = sunView ? "晴天占比" : "舒适时刻占比";
+  let h = header() + "<tbody>";
+  shown.forEach((r, i) => {
+    const c = r.c;
+    h += `<tr><td class="c-rank">${i + 1}</td><td class="c-city" data-city="${c.idx}"><span class="nm">${c.zh}</span><span class="rg">${c.region}</span>${c.hasAq ? "" : '<span class="noaq">无空气数据</span>'}</td>`;
+    h += `<td class="c-score"><b>${r.count}</b> <span>${Math.round(r.mean * 100)}%</span></td><td class="c-sun">${isNaN(r.sunny) ? "–" : Math.round(r.sunny)}</td>`;
+    for (const x of r.cells) {
+      const cls = ["cell", x.k % 2 === 0 ? "mstart" : ""];
+      let style = "", txt = "";
+      const v = sunView ? x.sun : x.frac;
+      if (isNaN(v)) { cls.push("nd"); txt = "–"; }
+      else {
+        txt = Math.round(v * 100);
+        if (x.veto && !sunView) cls.push("veto");
+        else {
+          const step = Math.min(7, Math.floor(v * 8));
+          style = `background:${RAMP[step]};color:${step >= 4 ? "var(--ink-on-dark)" : "var(--fg)"}`;
+          if (x.good) cls.push("ok");
+        }
+      }
+      h += `<td class="${cls.join(" ")}" style="${style}" data-c="${c.idx}" data-k="${x.k}">${txt}</td>`;
+    }
+    h += "</tr>";
+  });
+  tbl.innerHTML = h + "</tbody>";
+  const best = shown[0];
+  const okCities = shown.filter(r => r.count > 0).length;
+  $("summary").innerHTML = `${shown.length} 个城市 · <b>${okCities}</b> 个至少有 1 个舒适半月` + (best ? ` · 第一名 <b>${best.c.zh}</b>（${best.count} 个）` : "");
+}
+
+// ---------- 控件 ----------
+const fmt = {
+  hStart: v => `${String(v).padStart(2,"0")}:00`, hEnd: v => `${String(v).padStart(2,"0")}:59`,
+  tMin: v => `${v} °C`, tMax: v => `${v} °C`, tdMax: v => `${v} °C`, tdIntl: v => `${v} °C`,
+  rhMax: v => `${v}%`, cMax: v => `${v}%`, sunPct: v => `${v}%`, wMax: v => `${v} m/s`, pmMax: v => `${v}`, vDays: v => `${(+v).toFixed(1)} 天`, okPct: v => `${v}%`,
+};
+function syncControls() {
+  NUM.forEach(k => { $(k).value = state[k]; $(k + "O").textContent = fmt[k](state[k]); });
+  BOOL.forEach(k => $(k).checked = state[k]);
+  SEL.forEach(k => $(k).value = state[k]);
+  $("tdIntlBox").hidden = !state.tdSplit;
+  $("wBox").hidden = !state.wOn;
+  $("vBox").hidden = state.vScope === "none";
+  $("sunBox").hidden = state.sunMode !== "days";
+  document.querySelectorAll("#presets .chip").forEach(b => {
+    const p = PRESETS[b.dataset.p];
+    b.setAttribute("aria-pressed", Object.keys(p).every(k => p[k] === state[k]) ? "true" : "false");
+  });
+}
+let raf = 0;
+function update(k, v) {
+  state[k] = v;
+  syncControls();
+  try { localStorage.setItem("ylbm-state", JSON.stringify(state)); } catch (e) {}
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(render);
+}
+NUM.forEach(k => $(k).addEventListener("input", e => update(k, +e.target.value)));
+BOOL.forEach(k => $(k).addEventListener("change", e => update(k, e.target.checked)));
+SEL.forEach(k => $(k).addEventListener("change", e => update(k, e.target.value)));
+$("presets").innerHTML = Object.keys(PRESETS).map(p => `<button class="chip" data-p="${p}" aria-pressed="false">${p}</button>`).join("");
+$("presets").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  state = { ...state, ...PRESETS[b.dataset.p] }; update("sortBy", state.sortBy);
+});
+const REGIONS = ["全部", "中国大陆", "港澳台", "东亚", "东南亚/南亚", "大洋洲", "欧洲", "北美", "拉美", "中东/非洲"];
+$("regions").innerHTML = REGIONS.map(r => `<button class="chip" data-r="${r}">${r}</button>`).join("");
+function syncRegions() {
+  document.querySelectorAll("#regions .chip").forEach(x =>
+    x.setAttribute("aria-pressed", x.dataset.r === "全部" ? !regions.size : regions.has(x.dataset.r)));
+  try { localStorage.setItem("ylbm-regions", JSON.stringify([...regions])); } catch (e) {}
+}
+$("regions").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  const r = b.dataset.r;
+  if (r === "全部") regions.clear();
+  else if (regions.has(r)) regions.delete(r); else regions.add(r);
+  if (regions.size === REGIONS.length - 1) regions.clear();  // 全选等于全部
+  syncRegions(); render();
+});
+syncRegions();
+
+// ---------- 悬停提示 ----------
+const tip = $("tip");
+const pct = (a, b) => b ? `${Math.round(a / b * 100)}%` : "–";
+function showTip(el, x, y) {
+  let html = "";
+  if (el.dataset.k !== undefined) {
+    const r = rows.find(r => r.c.idx === +el.dataset.c), cell = r.cells[+el.dataset.k];
+    const k = cell.k, label = `${MONTHS[k >> 1]}${k % 2 ? "下半月" : "上半月"}`;
+    html = `<h3>${r.c.zh} · ${label}</h3>`;
+    if (!cell.tot) html += `<div class="note">所选时段内没有观测</div>`;
+    else {
+      html += `<div class="kv"><span>舒适时刻</span><span>${pct(cell.ok, cell.tot)}（${cell.ok}/${cell.tot}）</span>
+        <span>太冷 ≤${state.tMin}°C</span><span>${pct(cell.cold, cell.tot)}</span>
+        <span>太热 ≥${state.tMax}°C</span><span>${pct(cell.hot, cell.tot)}</span>
+        <span>露点超限</span><span>${pct(cell.wet, cell.tot)}</span>
+        <span>湿度 ≥${state.rhMax}%</span><span>${pct(cell.rhf, cell.tot)}</span>
+        ${state.wOn ? `<span>风太大</span><span>${pct(cell.wf, cell.tot)}</span>` : ""}
+        ${state.sunMode === "moments" ? `<span>不在晴天</span><span>${pct(cell.cf, cell.tot)}</span>` : ""}
+        <span>晴天占比（云量 ≤${state.cMax}%）</span><span>${isNaN(cell.sun) ? "–" : Math.round(cell.sun * 100) + "%"}</span>
+        ${r.c.hasAq && state.vScope !== "none" ? `<span>年均雾霾日${state.vScope === "month" ? "（全月）" : ""}</span><span>${isNaN(cell.hz) ? "–" : cell.hz.toFixed(1)}</span>` : ""}</div>`;
+      html += `<div class="note">一个时刻可能同时不满足多条，所以各项相加会超过 100%。</div>`;
+      if (cell.sunShort) html += `<div class="note bad">晴天占比不足 ${state.sunPct}%，不算舒适半月</div>`;
+      if (cell.veto) html += `<div class="note bad">雾霾否决：年均 ${cell.hz.toFixed(1)} 天 ≥ ${state.vDays} 天</div>`;
+    }
+  } else {
+    const c = cities[+el.dataset.city];
+    html = `<h3>${c.zh}</h3><div class="kv"><span>气象站</span><span>${c.sname}</span><span>ISD 编号</span><span>${c.station}</span>
+      <span>离市中心</span><span>${c.dist} km</span><span>海拔</span><span>${c.elev} m</span><span>5 年观测覆盖率</span><span>${Math.round(c.coverage * 100)}%</span>
+      <span>空气质量</span><span>${c.hasAq ? `aqicn · ${c.aqDays} 天` : "无数据"}</span><span>时区</span><span>${c.tz}</span></div>`;
+  }
+  tip.innerHTML = html; tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(innerWidth - w - 8, x + 14)) + "px";
+  tip.style.top = (y + 16 + h > innerHeight ? y - h - 10 : y + 16) + "px";
+}
+tbl.addEventListener("pointermove", e => {
+  const el = e.target.closest("td.cell, td.c-city");
+  if (el) showTip(el, e.clientX, e.clientY); else tip.hidden = true;
+});
+tbl.addEventListener("pointerleave", () => tip.hidden = true);
+tbl.addEventListener("click", e => { const el = e.target.closest("td.cell, td.c-city"); if (el) showTip(el, e.clientX, e.clientY); });
+addEventListener("scroll", () => tip.hidden = true, { passive: true });
+
+syncControls();
+$("loading").remove(); tbl.hidden = false;
+render();
+})();
+</script>
